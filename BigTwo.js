@@ -1,6 +1,6 @@
 var BigTwo = (function() {
 
-	var SINGLESRANKING = [
+	var CARDRANKING = [
 		"3D", "3C", "3H", "3S", 
 		"4D", "4C", "4H", "4S",
 		"5D", "5C", "5H", "5S",
@@ -15,6 +15,28 @@ var BigTwo = (function() {
 		"AD", "AC", "AH", "AS",
 		"2D", "2C", "2H", "2S"
 	];
+
+	var POKERHANDRANKING = {
+		"straight": 0,
+		"flush": 1,
+		"fullHouse": 2,
+		"bomb": 3,
+		"straightFlush": 4
+	};
+
+	var STRAIGHTRANKING = [
+		["3", "4", "5", "A", "2"],
+		["3", "4", "5", "6", "2"],
+		["3", "4", "5", "6", "7"],
+		["4", "5", "6", "7", "8"],
+		["5", "6", "7", "8", "9"],
+		["6", "7", "8", "9", "10"],
+		["7", "8", "9", "10", "J"],
+		["8", "9", "10", "J", "Q"],
+		["9", "10", "J", "Q", "K"],
+		["10", "J", "Q", "K", "A"]
+	];
+
 
 	function getRandomInt(min, max) {
 		return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -35,7 +57,7 @@ var BigTwo = (function() {
 		if(numOfPlayers < 2 || numOfPlayers > 4)
 			return false;
 
-		var deck = SINGLESRANKING.slice();
+		var deck = CARDRANKING.slice();
 		var playersHand = Array.from( new Array(numOfPlayers), function() { 
 				return []; 
 			} 
@@ -97,7 +119,6 @@ var BigTwo = (function() {
 					dealToPlayer(1);
 					dealToPlayer(2);
 					dealToPlayer(3);
-
 				}
 				this.sortByValue(playersHand[0]);
 				this.sortByValue(playersHand[1]);
@@ -144,11 +165,11 @@ var BigTwo = (function() {
 				var player1LowestCardRank;
 				var player2LowestCardRank;
 
-				for(var i = 0; i < SINGLESRANKING.length; i++) {
-					if(SINGLESRANKING[i] === player1LowestCard)
+				for(var i = 0; i < CARDRANKING.length; i++) {
+					if(CARDRANKING[i] === player1LowestCard)
 						player1LowestCardRank = i;
 
-					if(SINGLESRANKING[i] === player2LowestCard)
+					if(CARDRANKING[i] === player2LowestCard)
 						player2LowestCardRank = i;
 				}
 
@@ -156,43 +177,85 @@ var BigTwo = (function() {
 			}
 		}
 
+		function isDouble(inputCards=input) {
+			return inputCards[0].slice(0, -1) === inputCards[1].slice(0, -1); // both cards must have the same card value
+		}
+
+		function isTriple(inputCards=input) {
+			var inputValues = [inputCards[0].slice(0, -1), inputCards[1].slice(0, -1), inputCards[2].slice(0, -1)].toString();
+			var expectedValues = new Array(3).fill(inputCards[0].slice(0, -1)).toString();
+			return inputValues === expectedValues;
+		}
+
+		function isStraight() {
+
+			var inputValues = [input[0].slice(0, -1), input[1].slice(0, -1), input[2].slice(0, -1), input[3].slice(0, -1), input[4].slice(0, -1)].toString();
+			for(var i = 0; i < STRAIGHTRANKING.length; i++) {
+				if(inputValues === STRAIGHTRANKING[i].toString())
+					return true;
+			}
+			return false;
+		}
+
+		function isFlush() {
+			var inputSuits = [input[0].slice(-1), input[1].slice(-1), input[2].slice(-1), input[3].slice(-1), input[4].slice(-1)].toString();
+			var expectedSuits = new Array(5).fill(input[0].slice(-1)).toString();
+			return inputSuits === expectedSuits;
+		}
+
+		function isFullHouse() {
+			return (isTriple(input.slice(0, 3)) && isDouble(input.slice(3))) || (isTriple(input.slice(2)) && isDouble(input.slice(0, 2)));
+		}
+
+		function isBomb(input) {
+			var inputValues = [input[0].slice(0, -1), input[1].slice(0, -1), input[2].slice(0, -1), input[3].slice(0, -1), input[4].slice(0, -1)];
+			var expectedValues = new Array(4).fill(input[2].slice(0, -1)).toString();
+			return inputValues.slice(0, -1).toString() === expectedValues || inputValues.slice(1).toString() === expectedValues;
+		}
+
+		function isStraightFlush() {
+			return isStraight() && isFlush();
+		}
+
+		function isLegitPlay() {
+			// Check if play is legit
+			
+			// Legit plays can only be 1, 2, 3, or 5 cards
+			if(input.length < 1 || input.length === 4 || input.length > 5)
+				return false;
+			
+			// Singles - All single cards are legit plays; no check needed
+			
+			if(input.length === 2) // Doubles
+				return isDouble();
+			else if(input.length === 3) // Triples
+				return isTriple();
+			else if(input.length === 5) { // 5 card combos
+				return isStraight() || isFlush() || isFullHouse() || isBomb() || isStraightFlush();
+			}
+		}
+
+		function isLegalPlay() {
+			// Check if play is legal
+
+			// If field is empty, all legit plays are legal plays (unless it's the first turn)
+			if(field.length === 0 && !isFirstTurn)
+				return true;
+		}
+
 		function isPlayable() {
 
 			this.sortByValue(input); // Sort input
 
-		// Check if play is legal
-			
-			// Legal plays can only be 1, 2, 3, or 5 cards
-			if(input.length < 1 || input.length === 4 || input.length > 5)
-				return false;
-			
-			// Singles - All single cards are legal plays; no check needed
-			
-			if(input.length === 2) { // Doubles
-
-				if(input[0][0] != input[1][0]) // both cards must have the same card value
-					return false;
-			}
-			else if(input.length === 3) { // Triples
-
-				if(input[0][0] != input[1][0] || input[1][0] != input[2][0] || input[0][0] != input[2][0]) // all three cards must have the same card value
-					return false;
-			}
-			else if(input.length === 5) { // 5 card combos
-
-			}
-
-		// Check first turn play requirement
-
+			// Check first turn play requirement
 			if(isFirstTurn && input[0] !== "3D")
 				return false;
 
-		// Check if play ranking is sufficient
+			if(!isLegitPlay())
+				return false;
 
-			// If field is empty, all legal combination are legal plays (unless it's the first turn)
-			if(field.length === 0 && !isFirstTurn)
-				return true;
-			
+			if(!isLegalPlay())
+				return false;
 		} 
 
 		function play() {
@@ -201,11 +264,11 @@ var BigTwo = (function() {
 			var player1CardRank;
 			var player2CardRank;
 
-			for(var i = 0; i < SINGLESRANKING.length; i++) {
-				if(SINGLESRANKING[i] === player1Card)
+			for(var i = 0; i < CARDRANKING.length; i++) {
+				if(CARDRANKING[i] === player1Card)
 					player1CardRank = i;
 
-				if(SINGLESRANKING[i] === player2Card)
+				if(CARDRANKING[i] === player2Card)
 					player2CardRank = i;
 			}
 
@@ -223,8 +286,8 @@ var BigTwo = (function() {
 	}
 
 	BigTwo.prototype.sortByValue = function(cards) {
-		for(var i = 0; i < SINGLESRANKING.length; i++) {
-			var targetCard = SINGLESRANKING[i];
+		for(var i = 0; i < CARDRANKING.length; i++) {
+			var targetCard = CARDRANKING[i];
 
 			for(var j = 0; j < cards.length; j++) {
 				if(cards[j] === targetCard) {
@@ -241,7 +304,7 @@ var BigTwo = (function() {
 
 		//(i*4)+k != SINGLESRANKING.length
 		while(true) {
-			var targetCard = SINGLESRANKING[(i*4)+k];
+			var targetCard = CARDRANKING[(i*4)+k];
 
 			for(var j = 0; j < cards.length; j++) {
 				if(cards[j] === targetCard) {
@@ -249,10 +312,10 @@ var BigTwo = (function() {
 				}
 			}
 
-			if((i*4)+k === SINGLESRANKING.length-1)
+			if((i*4)+k === CARDRANKING.length-1)
 				break;
 
-			if(((i+1)*4)+k >= SINGLESRANKING.length) {
+			if(((i+1)*4)+k >= CARDRANKING.length) {
 				i = 0;
 				k++;
 			}
@@ -264,12 +327,23 @@ var BigTwo = (function() {
 	return BigTwo;
 })();
 
-var game = new BigTwo(4);
-game.shuffleDeck();
-game.dealHands();
-game.findFirstTurn();
+// var game = new BigTwo(4);
+// game.shuffleDeck();
+// game.dealHands();
 
-console.log(game.player1Hand.join(" "));
-console.log(game.player2Hand.join(" "));
-console.log(game.player3Hand.join(" "));
-console.log(game.player4Hand.join(" "));
+// console.log(game.player1Hand.join(" "));
+// console.log(game.player2Hand.join(" "));
+// console.log(game.player3Hand.join(" "));
+// console.log(game.player4Hand.join(" "));
+
+var input = ["3D", "3C"];
+var input1 = ["3C", "4C"];
+var input2 = ["4C", "4H"];
+
+function isDouble(inputCards=input) {
+	return inputCards[0].slice(0, -1) === inputCards[1].slice(0, -1); // both cards must have the same card value
+}
+
+console.log(isDouble());
+console.log(isDouble(input1));
+console.log(isDouble(input2));
